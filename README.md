@@ -9,7 +9,7 @@ Currently tested on PfSense routers.
 ## Download precompiled for your system
 
 Most recent binary release is here (precompiled)
-https://github.com/krippendorf/flex6k-discovery-util-go/files/586780/flex6k-discovery-util-go-0.1-REL.zip
+https://github.com/krippendorf/flex6k-discovery-util-go/releases/download/v0.1-br/flex6k-discovery-util-go-0.1-BR-REL.zip
 
 ...currently for 386/amd64 Linux (ubuntu, etc) FreeBSD (PfSense) and ARM 5 linux (RaspberryPi)
 If your platform isn't listed, send me a pull request for the pretty simple build.sh file. 
