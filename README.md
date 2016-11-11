@@ -62,9 +62,9 @@ If you host one or more radios on both sides of the tunnel or in different subne
  ```
 
 
- ### PfSense hints
+### PfSense hints
 
-put the binary to  ```/usr/local/bin/flex6k-discovery-util-go```
+Put the binary to  ```/usr/local/bin/flex6k-discovery-util-go```
 
 Create a file  ```vi /usr/local/etc/rc.d/xxxx-flex6k.sh```
 
