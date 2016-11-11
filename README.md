@@ -1,18 +1,18 @@
 # flex6k-discovery-util-go
 
 Lightweight replacement for: https://github.com/krippendorf/flex6k-discovery-util
-Util to use FRS 6XXX(R) signature series radios across subnets / routed VPNs
+util to use FRS 6XXX(R) signature series radios across subnets / routed VPNs
 
 Currently tested on PfSense routers.
 
 
 ## Download precompiled for your system
 
-Moste recent binary release is here (precompiled)
+Most recent binary release is here (precompiled)
 https://github.com/krippendorf/flex6k-discovery-util-go/files/586780/flex6k-discovery-util-go-0.1-REL.zip
 
-For 386/amd64 Linux  (ubuntu, etc) FreeBSD (PfSense) and ARM 5 linux (RaspberryPi)
-If your platform comes not precompiled, send me a pull request for the pretty simple build.sh file. 
+...currently for 386/amd64 Linux (ubuntu, etc) FreeBSD (PfSense) and ARM 5 linux (RaspberryPi)
+If your platform isn't listed, send me a pull request for the pretty simple build.sh file. 
 
 ## Example Usage
 
