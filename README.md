@@ -21,7 +21,7 @@ Currently tested on PfSense routers.
 ./flex6k-discovery-util-go --REMOTES=192.168.92.1:7777 --LOCALIFIP=192.168.40.1 --LOCALPORT=7788
 ```
 
-### Multi server (Client/Server/SERVER)
+### Multi server (Client/Server/Server)
 
 #### Server 1 VPN/Network site
 ```
@@ -40,7 +40,7 @@ Currently tested on PfSense routers.
 
 
 ### Multisite
-If you host radios on both sided of the tunnel or in different subnets and want to share accross networks you can run CLIENT & SERVER mode at the same time with the same process. 
+If you host one or more radios on both sides of the tunnel or in different subnets and want to share accross networks you can run CLIENT & SERVER mode at the same time with the same process. 
 
 #### Multisite node / relay loop
 
