@@ -28,11 +28,11 @@ If your platform isn't listed, send me a pull request for the pretty simple buil
 
 #### Client VPN/Network site
 
-if you need to redirect the traffic on clientside to anything other than 255.255.255.255 (default) you can apply the ``` LOCALBR``` argument e.g. ``` --LOCALBR=192.168.40.255```
-
 ```
 ./flex6k-discovery-util-go --REMOTES=192.168.92.1:7777 --LOCALIFIP=192.168.40.1 --LOCALPORT=7788
 ```
+
+If you need to redirect the traffic on clientside to anything other than 255.255.255.255 (default) you can apply the ``` LOCALBR``` argument e.g. ``` --LOCALBR=192.168.40.255``` I've discoverd that especially PfSense drops UDP packages directly to 255.255.255.255 - probably due to the fact it does not decide on which interface to send out the traffic
 
 ### Multi server (Client/Server/Server)
 
