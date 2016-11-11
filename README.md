@@ -61,3 +61,24 @@ If you host one or more radios on both sides of the tunnel or in different subne
  ./flex6k-discovery-util-go --REMOTES=192.168.92.1:7777;REMOTES=192.168.87.1:7777 --LOCALIFIP=192.168.40.1 --LOCALPORT=7788 --SERVERIP=192.168.40.1 --SERVERPORT=7777
  ```
 
+
+ ### PfSense hints
+
+put the binary to  ```/usr/local/bin/flex6k-discovery-util-go```
+
+Create a file  ```vi /usr/local/etc/rc.d/xxxx-flex6k.sh```
+
+Adjust it to meet your network configuration...
+
+```
+#!/bin/sh
+flex6k-discovery-util-go --LOCALBR=192.168.40.255 --REMOTES=192.168.92.1:7777 --LOCALIFIP=192.168.40.1 --LOCALPORT=7788
+```
+...try to leave VI
+
+```chmod +x vi /usr/local/etc/rc.d/xxxx-flex6k.sh```
+
+reboot.
+
+
+

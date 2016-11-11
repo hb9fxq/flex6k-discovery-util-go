@@ -107,7 +107,9 @@ func main() {
 		go ServerListener(appctx);
 	}
 
-	fmt.Scanln()
+	for{
+		time.Sleep(1*time.Second)
+	}
 }
 
 func FetchAllLocalIPs()(allips string) {
