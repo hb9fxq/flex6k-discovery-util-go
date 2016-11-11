@@ -8,6 +8,9 @@ Currently tested on PfSense routers.
 
 ### Simple setup (Client/Server)
 
+* 192.168.92.1 is on a VPN site with [n] radios in the subnet
+* 192.168.40.1 is a VPN router, connected via a TUN device and routes 192.168.92.0/40
+
 #### Server VPN/Network site
 ```
 ./flex6k-discovery-util-go --SERVERIP=192.168.92.1 --SERVERPORT=7777
@@ -18,7 +21,7 @@ Currently tested on PfSense routers.
 ./flex6k-discovery-util-go --REMOTES=192.168.92.1:7777 --LOCALIFIP=192.168.40.1 --LOCALPORT=7788
 ```
 
-### Multi server (Client/Server)
+### Multi server (Client/Server/SERVER)
 
 #### Server 1 VPN/Network site
 ```
