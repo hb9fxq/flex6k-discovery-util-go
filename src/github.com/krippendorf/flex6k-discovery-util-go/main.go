@@ -40,6 +40,7 @@ type AppContext struct {
 
 	localIp       string   // client listener IP & PORT
 	localPort     int
+	localBroadcast     string
 
 	allLocalIp       string   // client listener IP & PORT
 
@@ -69,6 +70,7 @@ func main() {
 	flag.StringVar(&remotes, "REMOTES", NDEF_STRING, "List remote server to subscribe to. One or more, format is [SERVER_IP:SERVER_PORT], if more than one, delimit subscriptions by ';'   e.g. --REMOTES=192.168.62.1:7224;192.168.63.1:7228")
 	flag.StringVar(&appctx.localIp, "LOCALIFIP", NDEF_STRING, "Client local interface IPinterface, where servers will forward pkgs to")
 	flag.IntVar(&appctx.localPort, "LOCALPORT", 0, "Local port")
+	flag.StringVar(&appctx.localBroadcast, "LOCALBR", NDEF_STRING, "Local broadcast address address, default 255.255.255.255 - e.g. 192.168.2.255. Required on PfSense!")
 	flag.StringVar(&appctx.serverIp, "SERVERIP", NDEF_STRING, "Broadcast server IP address")
 	flag.IntVar(&appctx.serverPort, "SERVERPORT", 0, "Broadcast server port")
 	flag.Parse()
@@ -164,10 +166,16 @@ func ListenForRelayedPkgs(appctx *AppContext) {
 func RelayLocal(appctx *AppContext, bytes []byte) {
 	fmt.Printf("    broadcasting in local subnet\n")
 
-	ServerAddr, err := net.ResolveUDPAddr(UDP_NETWORK, FRS_DISCOVEY_ADDR)
+	defAddr := FRS_DISCOVEY_ADDR
+
+	if(NDEF_STRING != appctx.localBroadcast){
+		defAddr =  appctx.localBroadcast + ":4992";
+	}
+
+	ServerAddr, err := net.ResolveUDPAddr(UDP_NETWORK, defAddr)
 	CheckError("broadcasting net.ResolveUDPAddr I", err)
 
-	LocalAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.localIp + ":0")
+	LocalAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.localIp + ":" + strconv.Itoa(appctx.localPort + 1))
 	CheckError("broadcasting net.ResolveUDPAddr II", err)
 
 	Conn, err := net.DialUDP(UDP_NETWORK, LocalAddr, ServerAddr)
