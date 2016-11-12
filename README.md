@@ -47,8 +47,10 @@ If you need to redirect the traffic on clientside to anything other than 255.255
 ```
 
 #### Client VPN/Network site
+Simple add all server to the REMOTES argument.
+
 ```
-./flex6k-discovery-util-go --REMOTES=192.168.92.1:7777;REMOTES=192.168.87.1:7777 --LOCALIFIP=192.168.40.1 --LOCALPORT=7788
+./flex6k-discovery-util-go --REMOTES=192.168.92.1:7777;192.168.87.1:7777 --LOCALIFIP=192.168.40.1 --LOCALPORT=7788
 ```
 
 
