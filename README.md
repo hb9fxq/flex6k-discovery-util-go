@@ -52,10 +52,10 @@ If you need to redirect the traffic on clientside to anything other than 255.255
 ```
 
 
-### Multisite
+### Multi site
 If you host one or more radios on both sides of the tunnel or in different subnets and want to share accross networks you can run CLIENT & SERVER mode at the same time with the same process. 
 
-#### Multisite node / relay loop
+#### Multi site node / relay loop
 
 ```
  ./flex6k-discovery-util-go --REMOTES=192.168.92.1:7777;REMOTES=192.168.87.1:7777 --LOCALIFIP=192.168.40.1 --LOCALPORT=7788 --SERVERIP=192.168.40.1 --SERVERPORT=7777
