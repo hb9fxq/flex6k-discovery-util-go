@@ -1,7 +1,7 @@
 /*
  .... work in progress... use on own risk!
 
- 2016 by Frank Werner-Krippendorf / HB9FXQ, 2016 mail@hb9fxq.ch
+ 2016, 2017 by Frank Werner-Krippendorf / HB9FXQ, mail@hb9fxq.ch
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
@@ -85,16 +85,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 
-
-
 	if (remotes != NDEF_STRING && appctx.localIp != NDEF_STRING) {
-
-		if(!strings.Contains(appctx.allLocalIp, appctx.localIp)){
-			fmt.Printf("FATAL ERROR: LOCALIFIP must be assigned to one of your local interfaces!")
-			os.Exit(0)
-
-		}
-
 		appctx.remotes = strings.Split(remotes, ";")
 		go NotifyRemotes(appctx)
 		go ListenForRelayedPkgs(appctx)
@@ -140,6 +131,11 @@ func ListenForRelayedPkgs(appctx *AppContext) {
 
 	ServerConn, err := net.ListenUDP(UDP_NETWORK, ListenerLocalAddress)
 	CheckError("Listener listen", err)
+
+	if(err != nil){
+		ListenForRelayedPkgs(appctx);
+	}
+
 	defer ServerConn.Close()
 
 	buf := make([]byte, 1024)
@@ -200,12 +196,23 @@ func NotifyRemotes(appctx *AppContext) {
 
 			ServerAddr, err := net.ResolveUDPAddr(UDP_NETWORK, remote)
 			CheckError("net.ResolveUDPAddr I", err)
+			if(err != nil){
+				continue;
+			}
 
 			LocalAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.localIp + ":0")
 			CheckError("net.ResolveUDPAddr II", err)
 
+			if(err != nil){
+				continue;
+			}
+
 			Conn, err := net.DialUDP(UDP_NETWORK, LocalAddr, ServerAddr)
 			CheckError("DialUDP", err)
+
+			if(err != nil){
+				continue;
+			}
 
 			defer Conn.Close()
 
@@ -311,8 +318,6 @@ func BroadcastListener(appctx *AppContext) {
 	for {
 		n, addr, err := ServerConn.ReadFromUDP(buf)
 
-
-
 		if(!IsFrsFlexDiscoveryPkgInBuvver(buf, n)){
 			continue // thats not ourts
 		}
@@ -321,20 +326,16 @@ func BroadcastListener(appctx *AppContext) {
 			continue; // skip own pkgs, that where captured on other local network interface
 		}
 
-
 		copy(prev, buf)
 
 		if (  strings.Contains(appctx.allLocalIp, addr.IP.String())) {
-
 			ackCnt++;
 			fmt.Println("SRV ACK [" + strconv.Itoa(ackCnt) + "]")
-
 			continue;
 		}
+
 		ackCnt = 0;
-
 		fmt.Printf("SRV BROADCAST RECEIVED [%s]\n", addr)
-
 		appctx.Lock()
 
 		if (0 < len(appctx.registrations)) {
@@ -345,9 +346,7 @@ func BroadcastListener(appctx *AppContext) {
 					continue
 				}
 
-
-					go NotifyListener(appctx, registration, buf[0:n])
-
+				go NotifyListener(appctx, registration, buf[0:n])
 
 			}
 		}
@@ -363,8 +362,8 @@ func BroadcastListener(appctx *AppContext) {
 
 func CheckError(where string, err error) {
 	if err != nil {
-		fmt.Println("FATAL: (" + where + ") ", err)
-		os.Exit(0)
+		fmt.Println("FATAL: (" + where + ") sleeping 5 seconds", err)
+		time.Sleep(5*time.Second)
 	}
 }
 
