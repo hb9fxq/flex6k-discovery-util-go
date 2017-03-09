@@ -128,6 +128,9 @@ func FetchAllLocalIPs()(allips string) {
 func ListenForRelayedPkgs(appctx *AppContext) {
 	ListenerLocalAddress, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.localIp + ":" + strconv.Itoa(appctx.localPort))
 	CheckError("Listener reslolve local", err)
+	if(err != nil){
+		ListenForRelayedPkgs(appctx)
+	}
 
 	ServerConn, err := net.ListenUDP(UDP_NETWORK, ListenerLocalAddress)
 	CheckError("Listener listen", err)
@@ -136,12 +139,15 @@ func ListenForRelayedPkgs(appctx *AppContext) {
 		ListenForRelayedPkgs(appctx);
 	}
 
-	defer ServerConn.Close()
-
 	buf := make([]byte, 1024)
 
 	for {
 		n, addr, err := ServerConn.ReadFromUDP(buf)
+
+
+		if(err != nil){
+			continue
+		}
 
 		if(strings.Contains(appctx.allLocalIp, addr.IP.String())){
 			continue // skip, if comes from local server instance, if registered in local loop
@@ -172,12 +178,21 @@ func RelayLocal(appctx *AppContext, bytes []byte) {
 
 	ServerAddr, err := net.ResolveUDPAddr(UDP_NETWORK, defAddr)
 	CheckError("broadcasting net.ResolveUDPAddr I", err)
+	if(err != nil){
+		return
+	}
 
 	LocalAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.localIp + ":" + strconv.Itoa(appctx.localPort + 1))
 	CheckError("broadcasting net.ResolveUDPAddr II", err)
+	if(err != nil){
+		return
+	}
 
 	Conn, err := net.DialUDP(UDP_NETWORK, LocalAddr, ServerAddr)
 	CheckError("broadcasting DialUDP", err)
+	if(err != nil){
+		return
+	}
 
 	defer Conn.Close()
 
@@ -236,9 +251,16 @@ func ServerListener(appctx *AppContext) {
 
 	FLexBroadcastAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.serverIp + ":" + strconv.Itoa(appctx.serverPort))
 	CheckError("SRV FIND IP", err)
+	if(err != nil){
+		ServerListener(appctx);
+	}
 
 	ServerConn, err := net.ListenUDP(UDP_NETWORK, FLexBroadcastAddr)
 	CheckError("SRV LISTEN", err)
+	if(err != nil){
+		ServerListener(appctx);
+	}
+
 	defer ServerConn.Close()
 
 	buf := make([]byte, 1024)
@@ -253,6 +275,9 @@ func ServerListener(appctx *AppContext) {
 
 		tokenPort, err := strconv.Atoi(tokens[2])
 		CheckError("PARSE REG CONTENT", err)
+		if(err != nil){
+			continue
+		}
 
 		appctx.Lock();
 		appctx.registrations[content] = ListenerRegistration{listenerIp: tokens[1], listenerPort: tokenPort, since:getCurrentUtcLinux(), raw:content}
