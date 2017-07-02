@@ -229,8 +229,6 @@ func NotifyRemotes(appctx *AppContext) {
 				continue;
 			}
 
-			defer Conn.Close()
-
 			msg := "R;" + appctx.localIp + ";" + strconv.Itoa(appctx.localPort);
 
 
@@ -241,6 +239,7 @@ func NotifyRemotes(appctx *AppContext) {
 				fmt.Println(msg, err)
 			}
 
+			Conn.Close();
 		}
 
 		time.Sleep(time.Second * 10)
