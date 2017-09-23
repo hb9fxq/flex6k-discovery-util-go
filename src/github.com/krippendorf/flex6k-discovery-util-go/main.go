@@ -433,12 +433,6 @@ func BroadcastListener(appctx *AppContext) {
 				}
 
 				go NotifyListener(appctx, registration, buf[0:n])
-
-				if(!IsFrsFlexDiscoveryPkgInBuffer(buf, n)){
-					continue // thats not ourts
-				}
-
-
 			}
 		}
 
