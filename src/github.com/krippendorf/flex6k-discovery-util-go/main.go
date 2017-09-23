@@ -31,6 +31,9 @@ import (
 	"time"
 	"sync"
 	"reflect"
+	"github.com/krippendorf/flex6k-discovery-util-go/flex"
+	"gopkg.in/telegram-bot-api.v4"
+	"io/ioutil"
 )
 
 type AppContext struct {
@@ -48,7 +51,15 @@ type AppContext struct {
 
 	registrations map[string]ListenerRegistration
 
+	lastState string
 	sync.Mutex
+
+	telegrambot *tgbotapi.BotAPI
+
+	telegramToken string
+	telegramChat int64
+
+	lastPackage *flex.DiscoveryPackage
 }
 
 type ListenerRegistration struct {
@@ -66,7 +77,6 @@ func main() {
 	appctx := new(AppContext)
 
 	var remotes string
-
 	flag.StringVar(&remotes, "REMOTES", NDEF_STRING, "List remote server to subscribe to. One or more, format is [SERVER_IP:SERVER_PORT], if more than one, delimit subscriptions by ';'   e.g. --REMOTES=192.168.62.1:7224;192.168.63.1:7228")
 	flag.StringVar(&appctx.localIp, "LOCALIFIP", NDEF_STRING, "Client local interface IPinterface, where servers will forward pkgs to")
 	flag.IntVar(&appctx.localPort, "LOCALPORT", 0, "Local port")
@@ -75,6 +85,8 @@ func main() {
 	flag.IntVar(&appctx.serverPort, "SERVERPORT", 0, "Broadcast server port")
 	flag.Parse()
 
+	go loadTelegramBot(appctx);
+	appctx.lastState = "empty"
 	appctx.allLocalIp = FetchAllLocalIPs()
 	fmt.Println("APP Identified local IPs: " + appctx.allLocalIp)
 
@@ -101,6 +113,37 @@ func main() {
 	for{
 		time.Sleep(1*time.Second)
 	}
+}
+
+func loadTelegramBot(context *AppContext) {
+
+	telegramData := "/flexi/telegramData"
+
+
+	if _, err := os.Stat(telegramData); os.IsNotExist(err) {
+		fmt.Printf("Telegram integration disabled: %s", err)
+		return
+	}
+
+	dat, err := ioutil.ReadFile(telegramData)
+	telegramdata := strings.Split(string(dat), " ")
+	context.telegramToken = telegramdata[0]
+
+	chat, err := strconv.ParseInt(telegramdata[1], 10, 64);
+	context.telegramChat =  chat
+
+	if(err != nil || chat == 0){
+		fmt.Printf("Telegram integration disabled: %s", err)
+		return
+	}
+
+	bot, err := tgbotapi.NewBotAPI(context.telegramToken)
+
+	if(err != nil){
+		return
+	}
+
+	context.telegrambot = bot;
 }
 
 func FetchAllLocalIPs()(allips string) {
@@ -155,6 +198,14 @@ func ListenForRelayedPkgs(appctx *AppContext) {
 
 		fmt.Println("CLT RECEIVED PKG FROM SRV @", addr.IP.String())
 
+		parsed := flex.Parse(buf[0:n])
+
+		if(parsed.Status != appctx.lastState){
+			go notifyTelegramGroup(appctx)
+			appctx.lastState = parsed.Status;
+			appctx.lastPackage = &parsed;
+		}
+
 		if(!IsFrsFlexDiscoveryPkgInBuvver(buf, n)){
 			continue // thats not ourts
 		}
@@ -165,6 +216,21 @@ func ListenForRelayedPkgs(appctx *AppContext) {
 			fmt.Println("CLT Error: ", err)
 		}
 	}
+}
+
+func notifyTelegramGroup(context *AppContext) {
+
+	if(context.telegrambot == nil || context.lastPackage == nil || len(context.lastPackage.Status) == 0 ){
+		return
+	}
+
+	filenameStatusImage := "/flexi/" +context.lastPackage.Status+ ".jpg"
+
+	msgImg := tgbotapi.NewPhotoUpload(context.telegramChat, filenameStatusImage)
+	context.telegrambot.Send(msgImg)
+
+	msg := tgbotapi.NewMessage(context.telegramChat, "Radio "+ context.lastPackage.Serial + " state changed: '" + context.lastPackage.Status + "' " + context.lastPackage.Inuse_ip + " " + context.lastPackage.Inuse_host)
+	context.telegrambot.Send(msg)
 }
 
 func RelayLocal(appctx *AppContext, bytes []byte) {
