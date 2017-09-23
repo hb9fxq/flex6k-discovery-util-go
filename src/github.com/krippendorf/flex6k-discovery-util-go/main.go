@@ -198,18 +198,6 @@ func ListenForRelayedPkgs(appctx *AppContext) {
 
 		fmt.Println("CLT RECEIVED PKG FROM SRV @", addr.IP.String())
 
-		parsed := flex.Parse(buf[0:n])
-
-		if(parsed.Status != appctx.lastState){
-			go notifyTelegramGroup(appctx)
-			appctx.lastState = parsed.Status;
-			appctx.lastPackage = &parsed;
-		}
-
-		if(!IsFrsFlexDiscoveryPkgInBuvver(buf, n)){
-			continue // thats not ourts
-		}
-
 		RelayLocal(appctx, buf[0:n])
 
 		if err != nil {
@@ -408,7 +396,7 @@ func BroadcastListener(appctx *AppContext) {
 	for {
 		n, addr, err := ServerConn.ReadFromUDP(buf)
 
-		if(!IsFrsFlexDiscoveryPkgInBuvver(buf, n)){
+		if(!IsFrsFlexDiscoveryPkgInBuffer(buf, n)){
 			continue // thats not ourts
 		}
 
@@ -428,6 +416,14 @@ func BroadcastListener(appctx *AppContext) {
 		fmt.Printf("SRV BROADCAST RECEIVED [%s]\n", addr)
 		appctx.Lock()
 
+
+		parsed := flex.Parse(buf[0:n])
+		if(parsed.Status != appctx.lastState){
+			appctx.lastState = parsed.Status;
+			appctx.lastPackage = &parsed;
+			go notifyTelegramGroup(appctx)
+		}
+
 		if (0 < len(appctx.registrations)) {
 			for _, registration := range appctx.registrations {
 				if (registration.since + 30000 < getCurrentUtcLinux()) {
@@ -437,6 +433,11 @@ func BroadcastListener(appctx *AppContext) {
 				}
 
 				go NotifyListener(appctx, registration, buf[0:n])
+
+				if(!IsFrsFlexDiscoveryPkgInBuffer(buf, n)){
+					continue // thats not ourts
+				}
+
 
 			}
 		}
@@ -457,7 +458,7 @@ func CheckError(where string, err error) {
 	}
 }
 
-func IsFrsFlexDiscoveryPkgInBuvver(buf []byte, length int)(res bool){
+func IsFrsFlexDiscoveryPkgInBuffer(buf []byte, length int)(res bool){
 
 	if(900<length){
 		res = false
