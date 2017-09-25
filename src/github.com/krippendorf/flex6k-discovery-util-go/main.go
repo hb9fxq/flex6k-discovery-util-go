@@ -34,6 +34,8 @@ import (
 	"github.com/krippendorf/flex6k-discovery-util-go/flex"
 	"gopkg.in/telegram-bot-api.v4"
 	"io/ioutil"
+	"github.com/streadway/amqp"
+	 "encoding/json"
 )
 
 type AppContext struct {
@@ -60,6 +62,11 @@ type AppContext struct {
 	telegramChat int64
 
 	lastPackage *flex.DiscoveryPackage
+
+	rabbitConnStr string
+	rabbitChan *amqp.Channel
+	rabbitConn *amqp.Connection
+	rabbitconnected bool
 }
 
 type ListenerRegistration struct {
@@ -83,7 +90,10 @@ func main() {
 	flag.StringVar(&appctx.localBroadcast, "LOCALBR", NDEF_STRING, "Local broadcast address address, default 255.255.255.255 - e.g. 192.168.2.255. Required on PfSense!")
 	flag.StringVar(&appctx.serverIp, "SERVERIP", NDEF_STRING, "Broadcast server IP address")
 	flag.IntVar(&appctx.serverPort, "SERVERPORT", 0, "Broadcast server port")
+	flag.StringVar(&appctx.rabbitConnStr, "RABBITCONN", NDEF_STRING, "Rabbitmq connection string")
 	flag.Parse()
+
+	reconfigureAmqp(appctx)
 
 	go loadTelegramBot(appctx);
 	appctx.lastState = "empty"
@@ -112,6 +122,52 @@ func main() {
 
 	for{
 		time.Sleep(1*time.Second)
+	}
+}
+
+func reconfigureAmqp(context *AppContext) {
+	context.rabbitconnected = false;
+	if(len(context.rabbitConnStr) == 0){
+		return
+	}
+
+	fmt.Printf("Reconfigure AMQP...\n")
+
+	conn, err := amqp.Dial(context.rabbitConnStr)
+	logError(err, "Failed to connect to RabbitMQ")
+
+	if(err != nil){
+		return
+	}
+
+	ch, err := conn.Channel()
+	logError(err, "Failed to open a channel")
+
+	context.rabbitConn = conn
+	context.rabbitChan = ch;
+
+
+	err = ch.ExchangeDeclare(
+		"flex_topic", // name
+		"topic",      // type
+		true,         // durable
+		false,        // auto-deleted
+		false,        // internal
+		false,        // no-wait
+		nil,          // arguments
+	)
+	logError(err, "Failed to declare an exchange")
+
+	if(err == nil){
+		fmt.Printf("AMQP configured.\n")
+	} else {
+		context.rabbitconnected = true;
+	}
+}
+
+func logError(err error, msg string) {
+	if err != nil {
+		fmt.Printf("%s: %s\n", msg, err)
 	}
 }
 
@@ -424,6 +480,8 @@ func BroadcastListener(appctx *AppContext) {
 			go notifyTelegramGroup(appctx)
 		}
 
+		go pushAmqp(appctx, parsed)
+
 		if (0 < len(appctx.registrations)) {
 			for _, registration := range appctx.registrations {
 				if (registration.since + 30000 < getCurrentUtcLinux()) {
@@ -443,6 +501,38 @@ func BroadcastListener(appctx *AppContext) {
 		}
 	}
 
+}
+
+func pushAmqp(context *AppContext, discoveryPackage flex.DiscoveryPackage) {
+
+	if(len(context.rabbitConnStr) == 0){
+		return
+	}
+
+	if(context.rabbitChan != nil) {
+
+		pkgJson, err := json.Marshal(discoveryPackage)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		err = context.rabbitChan.Publish(
+			"flex_topic", // exchange
+			"discovery",  // routing key
+			false,        // mandatory
+			false,        // immediate
+			amqp.Publishing{
+				ContentType: "text/plain",
+				Body:        []byte(pkgJson),
+			})
+		if (err != nil) {
+			fmt.Println("amqp not available, trying to reconfigure!\n")
+			go reconfigureAmqp(context)
+		}
+	} else {
+		go reconfigureAmqp(context)
+	}
 }
 
 func CheckError(where string, err error) {
