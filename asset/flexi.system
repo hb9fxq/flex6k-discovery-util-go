@@ -1,0 +1,13 @@
+[Unit]
+Description=flex radio discovery
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/flexi --SERVERIP=192.168.92.7 --SERVERPORT=7777 --RABBITCONN=amqp://guest:guest@192.168.92.7:5672/
+Restart=always
+RestartSec=10
+StandardOutput=null
+
+[Install]
+WantedBy=multi-user.target
