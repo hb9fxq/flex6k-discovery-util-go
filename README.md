@@ -65,12 +65,4 @@ If you host one or more radios on both sides of the tunnel or in different subne
  ```
 
 
-### PfSense hints
-
-Adjust ```flexdisovery```the file in pfsense_rc to  your setup
-and copy both files in pfsense_rc to ```/usr/local/etc/rc.d/```
-
-reboot.
-
-
 
