@@ -510,7 +510,7 @@ func pushAmqp(context *AppContext, discoveryPackage flex.DiscoveryPackage) {
 			return
 		}
 
-		fmt.Println(pkgJson)
+		fmt.Println(string(pkgJson))
 
 		err = context.rabbitChan.Publish(
 			"flex_topic", // exchange
