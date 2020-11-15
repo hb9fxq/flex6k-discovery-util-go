@@ -260,18 +260,19 @@ func ListenForRelayedPkgs(appctx *AppContext) {
 
 func notifyTelegramGroup(context *AppContext) {
 
-	fmt.Print("Telegram Notify: " + context.lastPackage.Status)
+	fmt.Println("Telegram Notify: " + context.lastPackage.Status)
 	if context.telegrambot == nil || context.lastPackage == nil || len(context.lastPackage.Status) == 0 {
 		return
 	}
 
 	filenameStatusImage := "/flexi/" + context.lastPackage.Status + ".jpg"
 
+	msg := tgbotapi.NewMessage(context.telegramChat, "Radio "+context.lastPackage.Serial+" state changed: '"+context.lastPackage.Status+"' "+context.lastPackage.Inuse_ip+" "+context.lastPackage.Inuse_host)
+	context.telegrambot.Send(msg)
+
 	msgImg := tgbotapi.NewPhotoUpload(context.telegramChat, filenameStatusImage)
 	context.telegrambot.Send(msgImg)
 
-	msg := tgbotapi.NewMessage(context.telegramChat, "Radio "+context.lastPackage.Serial+" state changed: '"+context.lastPackage.Status+"' "+context.lastPackage.Inuse_ip+" "+context.lastPackage.Inuse_host)
-	context.telegrambot.Send(msg)
 }
 
 func RelayLocal(appctx *AppContext, bytes []byte) {
