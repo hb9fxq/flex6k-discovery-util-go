@@ -18,38 +18,37 @@
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  THE SOFTWARE.
- */
+*/
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
-	"net"
-	"strconv"
-	"strings"
-	"time"
-	"sync"
-	"reflect"
 	"github.com/krippendorf/flex6k-discovery-util-go/flex"
+	"github.com/streadway/amqp"
 	"gopkg.in/telegram-bot-api.v4"
 	"io/ioutil"
-	"github.com/streadway/amqp"
-	 "encoding/json"
+	"net"
+	"os"
+	"reflect"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 type AppContext struct {
-	serverIp      string   // registraton server IP & PORT
-	serverPort    int
+	serverIp   string // registraton server IP & PORT
+	serverPort int
 
+	localIp        string // client listener IP & PORT
+	localPort      int
+	localBroadcast string
 
-	localIp       string   // client listener IP & PORT
-	localPort     int
-	localBroadcast     string
+	allLocalIp string // client listener IP & PORT
 
-	allLocalIp       string   // client listener IP & PORT
-
-	remotes       []string // remotes to be notified
+	remotes []string // remotes to be notified
 
 	registrations map[string]ListenerRegistration
 
@@ -59,13 +58,13 @@ type AppContext struct {
 	telegrambot *tgbotapi.BotAPI
 
 	telegramToken string
-	telegramChat int64
+	telegramChat  int64
 
 	lastPackage *flex.DiscoveryPackage
 
-	rabbitConnStr string
-	rabbitChan *amqp.Channel
-	rabbitConn *amqp.Connection
+	rabbitConnStr   string
+	rabbitChan      *amqp.Channel
+	rabbitConn      *amqp.Connection
 	rabbitconnected bool
 }
 
@@ -95,7 +94,7 @@ func main() {
 
 	reconfigureAmqp(appctx)
 
-	go loadTelegramBot(appctx);
+	go loadTelegramBot(appctx)
 	appctx.lastState = "empty"
 	appctx.allLocalIp = FetchAllLocalIPs()
 	fmt.Println("APP Identified local IPs: " + appctx.allLocalIp)
@@ -107,27 +106,27 @@ func main() {
 		flag.PrintDefaults()
 	}
 
-	if (remotes != NDEF_STRING && appctx.localIp != NDEF_STRING) {
+	if remotes != NDEF_STRING && appctx.localIp != NDEF_STRING {
 		appctx.remotes = strings.Split(remotes, ";")
 		go NotifyRemotes(appctx)
 		go ListenForRelayedPkgs(appctx)
 	}
 
-	if (appctx.serverIp != NDEF_STRING && 0 < appctx.serverPort) {
+	if appctx.serverIp != NDEF_STRING && 0 < appctx.serverPort {
 		appctx.registrations = make(map[string]ListenerRegistration)
 		fmt.Printf("SRV listening for registrations on: %s:%d \n", appctx.serverIp, appctx.serverPort)
-		go BroadcastListener(appctx);
-		go ServerListener(appctx);
+		go BroadcastListener(appctx)
+		go ServerListener(appctx)
 	}
 
-	for{
-		time.Sleep(1*time.Second)
+	for {
+		time.Sleep(1 * time.Second)
 	}
 }
 
 func reconfigureAmqp(context *AppContext) {
-	context.rabbitconnected = false;
-	if(len(context.rabbitConnStr) == 0){
+	context.rabbitconnected = false
+	if len(context.rabbitConnStr) == 0 {
 		return
 	}
 
@@ -136,7 +135,7 @@ func reconfigureAmqp(context *AppContext) {
 	conn, err := amqp.Dial(context.rabbitConnStr)
 	logError(err, "Failed to connect to RabbitMQ")
 
-	if(err != nil){
+	if err != nil {
 		return
 	}
 
@@ -144,8 +143,7 @@ func reconfigureAmqp(context *AppContext) {
 	logError(err, "Failed to open a channel")
 
 	context.rabbitConn = conn
-	context.rabbitChan = ch;
-
+	context.rabbitChan = ch
 
 	err = ch.ExchangeDeclare(
 		"flex_topic", // name
@@ -158,10 +156,10 @@ func reconfigureAmqp(context *AppContext) {
 	)
 	logError(err, "Failed to declare an exchange")
 
-	if(err == nil){
+	if err == nil {
 		fmt.Printf("AMQP configured.\n")
 	} else {
-		context.rabbitconnected = true;
+		context.rabbitconnected = true
 	}
 }
 
@@ -175,7 +173,6 @@ func loadTelegramBot(context *AppContext) {
 
 	telegramData := "/flexi/telegramData"
 
-
 	if _, err := os.Stat(telegramData); os.IsNotExist(err) {
 		fmt.Printf("Telegram integration disabled: %s", err)
 		return
@@ -185,24 +182,24 @@ func loadTelegramBot(context *AppContext) {
 	telegramdata := strings.Split(string(dat), " ")
 	context.telegramToken = telegramdata[0]
 
-	chat, err := strconv.ParseInt(telegramdata[1], 10, 64);
-	context.telegramChat =  chat
+	chat, err := strconv.ParseInt(telegramdata[1], 10, 64)
+	context.telegramChat = chat
 
-	if(err != nil || chat == 0){
+	if err != nil || chat == 0 {
 		fmt.Printf("Telegram integration disabled: %s", err)
 		return
 	}
 
 	bot, err := tgbotapi.NewBotAPI(context.telegramToken)
 
-	if(err != nil){
+	if err != nil {
 		return
 	}
 
-	context.telegrambot = bot;
+	context.telegrambot = bot
 }
 
-func FetchAllLocalIPs()(allips string) {
+func FetchAllLocalIPs() (allips string) {
 
 	allips = "0.0.0.0 127.0.0.1 "
 	ifaces, err := net.Interfaces()
@@ -216,7 +213,7 @@ func FetchAllLocalIPs()(allips string) {
 			case *net.IPNet:
 				allips += v.IP.String() + " "
 			case *net.IPAddr:
-				allips +=  v.IP.String() + " "
+				allips += v.IP.String() + " "
 			}
 		}
 	}
@@ -225,17 +222,17 @@ func FetchAllLocalIPs()(allips string) {
 }
 
 func ListenForRelayedPkgs(appctx *AppContext) {
-	ListenerLocalAddress, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.localIp + ":" + strconv.Itoa(appctx.localPort))
+	ListenerLocalAddress, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.localIp+":"+strconv.Itoa(appctx.localPort))
 	CheckError("Listener reslolve local", err)
-	if(err != nil){
+	if err != nil {
 		ListenForRelayedPkgs(appctx)
 	}
 
 	ServerConn, err := net.ListenUDP(UDP_NETWORK, ListenerLocalAddress)
 	CheckError("Listener listen", err)
 
-	if(err != nil){
-		ListenForRelayedPkgs(appctx);
+	if err != nil {
+		ListenForRelayedPkgs(appctx)
 	}
 
 	buf := make([]byte, 1024)
@@ -243,12 +240,11 @@ func ListenForRelayedPkgs(appctx *AppContext) {
 	for {
 		n, addr, err := ServerConn.ReadFromUDP(buf)
 
-
-		if(err != nil){
+		if err != nil {
 			continue
 		}
 
-		if(strings.Contains(appctx.allLocalIp, addr.IP.String())){
+		if strings.Contains(appctx.allLocalIp, addr.IP.String()) {
 			continue // skip, if comes from local server instance, if registered in local loop
 		}
 
@@ -264,16 +260,16 @@ func ListenForRelayedPkgs(appctx *AppContext) {
 
 func notifyTelegramGroup(context *AppContext) {
 
-	if(context.telegrambot == nil || context.lastPackage == nil || len(context.lastPackage.Status) == 0 ){
+	if context.telegrambot == nil || context.lastPackage == nil || len(context.lastPackage.Status) == 0 {
 		return
 	}
 
-	filenameStatusImage := "/flexi/" +context.lastPackage.Status+ ".jpg"
+	filenameStatusImage := "/flexi/" + context.lastPackage.Status + ".jpg"
 
 	msgImg := tgbotapi.NewPhotoUpload(context.telegramChat, filenameStatusImage)
 	context.telegrambot.Send(msgImg)
 
-	msg := tgbotapi.NewMessage(context.telegramChat, "Radio "+ context.lastPackage.Serial + " state changed: '" + context.lastPackage.Status + "' " + context.lastPackage.Inuse_ip + " " + context.lastPackage.Inuse_host)
+	msg := tgbotapi.NewMessage(context.telegramChat, "Radio "+context.lastPackage.Serial+" state changed: '"+context.lastPackage.Status+"' "+context.lastPackage.Inuse_ip+" "+context.lastPackage.Inuse_host)
 	context.telegrambot.Send(msg)
 }
 
@@ -282,25 +278,25 @@ func RelayLocal(appctx *AppContext, bytes []byte) {
 
 	defAddr := FRS_DISCOVEY_ADDR
 
-	if(NDEF_STRING != appctx.localBroadcast){
-		defAddr =  appctx.localBroadcast + ":4992";
+	if NDEF_STRING != appctx.localBroadcast {
+		defAddr = appctx.localBroadcast + ":4992"
 	}
 
 	ServerAddr, err := net.ResolveUDPAddr(UDP_NETWORK, defAddr)
 	CheckError("broadcasting net.ResolveUDPAddr I", err)
-	if(err != nil){
+	if err != nil {
 		return
 	}
 
-	LocalAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.localIp + ":" + strconv.Itoa(appctx.localPort + 1))
+	LocalAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.localIp+":"+strconv.Itoa(appctx.localPort+1))
 	CheckError("broadcasting net.ResolveUDPAddr II", err)
-	if(err != nil){
+	if err != nil {
 		return
 	}
 
 	Conn, err := net.DialUDP(UDP_NETWORK, LocalAddr, ServerAddr)
 	CheckError("broadcasting DialUDP", err)
-	if(err != nil){
+	if err != nil {
 		return
 	}
 
@@ -321,26 +317,25 @@ func NotifyRemotes(appctx *AppContext) {
 
 			ServerAddr, err := net.ResolveUDPAddr(UDP_NETWORK, remote)
 			CheckError("net.ResolveUDPAddr I", err)
-			if(err != nil){
-				continue;
+			if err != nil {
+				continue
 			}
 
-			LocalAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.localIp + ":0")
+			LocalAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.localIp+":0")
 			CheckError("net.ResolveUDPAddr II", err)
 
-			if(err != nil){
-				continue;
+			if err != nil {
+				continue
 			}
 
 			Conn, err := net.DialUDP(UDP_NETWORK, LocalAddr, ServerAddr)
 			CheckError("DialUDP", err)
 
-			if(err != nil){
-				continue;
+			if err != nil {
+				continue
 			}
 
-			msg := "R;" + appctx.localIp + ";" + strconv.Itoa(appctx.localPort);
-
+			msg := "R;" + appctx.localIp + ";" + strconv.Itoa(appctx.localPort)
 
 			buf := []byte(msg)
 			_, ewrite := Conn.Write(buf)
@@ -349,7 +344,7 @@ func NotifyRemotes(appctx *AppContext) {
 				fmt.Println(msg, err)
 			}
 
-			Conn.Close();
+			Conn.Close()
 		}
 
 		time.Sleep(time.Second * 10)
@@ -358,16 +353,16 @@ func NotifyRemotes(appctx *AppContext) {
 
 func ServerListener(appctx *AppContext) {
 
-	FLexBroadcastAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.serverIp + ":" + strconv.Itoa(appctx.serverPort))
+	FLexBroadcastAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.serverIp+":"+strconv.Itoa(appctx.serverPort))
 	CheckError("SRV FIND IP", err)
-	if(err != nil){
-		ServerListener(appctx);
+	if err != nil {
+		ServerListener(appctx)
 	}
 
 	ServerConn, err := net.ListenUDP(UDP_NETWORK, FLexBroadcastAddr)
 	CheckError("SRV LISTEN", err)
-	if(err != nil){
-		ServerListener(appctx);
+	if err != nil {
+		ServerListener(appctx)
 	}
 
 	defer ServerConn.Close()
@@ -384,13 +379,13 @@ func ServerListener(appctx *AppContext) {
 
 		tokenPort, err := strconv.Atoi(tokens[2])
 		CheckError("PARSE REG CONTENT", err)
-		if(err != nil){
+		if err != nil {
 			continue
 		}
 
-		appctx.Lock();
-		appctx.registrations[content] = ListenerRegistration{listenerIp: tokens[1], listenerPort: tokenPort, since:getCurrentUtcLinux(), raw:content}
-		appctx.Unlock();
+		appctx.Lock()
+		appctx.registrations[content] = ListenerRegistration{listenerIp: tokens[1], listenerPort: tokenPort, since: getCurrentUtcLinux(), raw: content}
+		appctx.Unlock()
 
 		fmt.Printf("SRV: Number of regs: %d\n", len(appctx.registrations))
 
@@ -407,14 +402,14 @@ func getCurrentUtcLinux() int64 {
 func NotifyListener(appctx *AppContext, listener ListenerRegistration, msg []byte) {
 	fmt.Printf("	==> Notifying remote [%s]\n", listener.raw)
 
-	ListenerAddr, err := net.ResolveUDPAddr(UDP_NETWORK, listener.listenerIp + ":" + strconv.Itoa(listener.listenerPort))
+	ListenerAddr, err := net.ResolveUDPAddr(UDP_NETWORK, listener.listenerIp+":"+strconv.Itoa(listener.listenerPort))
 
 	if err != nil {
 		fmt.Println("SRV ERR, Could not notify listener", err)
 		return
 	}
 
-	LocalAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.serverIp + ":0")
+	LocalAddr, err := net.ResolveUDPAddr(UDP_NETWORK, appctx.serverIp+":0")
 	if err != nil {
 		fmt.Println("SRV ERR, Could not notify listener", err)
 		return
@@ -437,12 +432,11 @@ func NotifyListener(appctx *AppContext, listener ListenerRegistration, msg []byt
 
 func BroadcastListener(appctx *AppContext) {
 
-	LocalAddr := net.UDPAddr{IP: net.IPv4zero, Port:4992}
+	LocalAddr := net.UDPAddr{IP: net.IPv4zero, Port: 4992}
 
 	ServerConn, err := net.ListenUDP(UDP_NETWORK, &LocalAddr)
 	CheckError("BR listen", err)
 	defer ServerConn.Close()
-
 
 	buf := make([]byte, 1024)
 	prev := make([]byte, 1024)
@@ -452,39 +446,38 @@ func BroadcastListener(appctx *AppContext) {
 	for {
 		n, addr, err := ServerConn.ReadFromUDP(buf)
 
-		if(!IsFrsFlexDiscoveryPkgInBuffer(buf, n)){
+		if !IsFrsFlexDiscoveryPkgInBuffer(buf, n) {
 			continue // thats not ourts
 		}
 
-		if(reflect.DeepEqual(buf, prev)){
-			continue; // skip own pkgs, that where captured on other local network interface
+		if reflect.DeepEqual(buf, prev) {
+			continue // skip own pkgs, that where captured on other local network interface
 		}
 
 		copy(prev, buf)
 
-		if (  strings.Contains(appctx.allLocalIp, addr.IP.String())) {
-			ackCnt++;
+		if strings.Contains(appctx.allLocalIp, addr.IP.String()) {
+			ackCnt++
 			fmt.Println("SRV ACK [" + strconv.Itoa(ackCnt) + "]")
-			continue;
+			continue
 		}
 
-		ackCnt = 0;
+		ackCnt = 0
 		fmt.Printf("SRV BROADCAST RECEIVED [%s]\n", addr)
 		appctx.Lock()
 
-
 		parsed := flex.Parse(buf[0:n])
-		if(parsed.Status != appctx.lastState){
-			appctx.lastState = parsed.Status;
-			appctx.lastPackage = &parsed;
+		if parsed.Status != appctx.lastState {
+			appctx.lastState = parsed.Status
+			appctx.lastPackage = &parsed
 			go notifyTelegramGroup(appctx)
 		}
 
 		go pushAmqp(appctx, parsed)
 
-		if (0 < len(appctx.registrations)) {
+		if 0 < len(appctx.registrations) {
 			for _, registration := range appctx.registrations {
-				if (registration.since + 30000 < getCurrentUtcLinux()) {
+				if registration.since+30000 < getCurrentUtcLinux() {
 					delete(appctx.registrations, registration.raw)
 					fmt.Printf("TTL for registration %s:%d\n", registration.listenerIp, registration.listenerPort)
 					continue
@@ -505,17 +498,19 @@ func BroadcastListener(appctx *AppContext) {
 
 func pushAmqp(context *AppContext, discoveryPackage flex.DiscoveryPackage) {
 
-	if(len(context.rabbitConnStr) == 0){
+	if len(context.rabbitConnStr) == 0 {
 		return
 	}
 
-	if(context.rabbitChan != nil) {
+	if context.rabbitChan != nil {
 
 		pkgJson, err := json.Marshal(discoveryPackage)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+
+		fmt.Println(pkgJson)
 
 		err = context.rabbitChan.Publish(
 			"flex_topic", // exchange
@@ -526,7 +521,7 @@ func pushAmqp(context *AppContext, discoveryPackage flex.DiscoveryPackage) {
 				ContentType: "text/plain",
 				Body:        []byte(pkgJson),
 			})
-		if (err != nil) {
+		if err != nil {
 			fmt.Println("amqp not available, trying to reconfigure!\n")
 			go reconfigureAmqp(context)
 		}
@@ -537,14 +532,14 @@ func pushAmqp(context *AppContext, discoveryPackage flex.DiscoveryPackage) {
 
 func CheckError(where string, err error) {
 	if err != nil {
-		fmt.Println("FATAL: (" + where + ") sleeping 5 seconds", err)
-		time.Sleep(5*time.Second)
+		fmt.Println("FATAL: ("+where+") sleeping 5 seconds", err)
+		time.Sleep(5 * time.Second)
 	}
 }
 
-func IsFrsFlexDiscoveryPkgInBuffer(buf []byte, length int)(res bool){
+func IsFrsFlexDiscoveryPkgInBuffer(buf []byte, length int) (res bool) {
 
-	if(900<length){
+	if 900 < length {
 		res = false
 		fmt.Printf("ERROR: INVALID DATA, size: %d", length)
 		return
@@ -553,7 +548,7 @@ func IsFrsFlexDiscoveryPkgInBuffer(buf []byte, length int)(res bool){
 	content := string(buf[0:length])
 	res = strings.Contains(content, "serial=") && strings.Contains(content, "version=") && strings.Contains(content, "ip=")
 
-	if(!res){
+	if !res {
 		fmt.Println("ERROR: INVALID DATA")
 	}
 
