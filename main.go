@@ -25,10 +25,8 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"github.com/eclipse/paho.mqtt.golang"
 	"github.com/krippendorf/flex6k-discovery-util-go/flex"
-	"github.com/streadway/amqp"
-	"gopkg.in/telegram-bot-api.v4"
-	"io/ioutil"
 	"net"
 	"os"
 	"reflect"
@@ -54,18 +52,8 @@ type AppContext struct {
 
 	lastState string
 	sync.Mutex
-
-	telegrambot *tgbotapi.BotAPI
-
-	telegramToken string
-	telegramChat  int64
-
 	lastPackage *flex.DiscoveryPackage
-
-	rabbitConnStr   string
-	rabbitChan      *amqp.Channel
-	rabbitConn      *amqp.Connection
-	rabbitconnected bool
+	mqttClient  mqtt.Client
 }
 
 type ListenerRegistration struct {
@@ -79,6 +67,17 @@ const NDEF_STRING string = "NDEF"
 const FRS_DISCOVEY_ADDR string = "255.255.255.255:4992"
 const UDP_NETWORK string = "udp4"
 
+func setupMqttClient(appctx *AppContext) {
+	opts := mqtt.NewClientOptions().AddBroker("tcp://192.168.92.7:1883").SetClientID("flex6k-discovery")
+	opts.SetKeepAlive(2 * time.Second)
+	opts.SetPingTimeout(1 * time.Second)
+
+	appctx.mqttClient = mqtt.NewClient(opts)
+	if token := appctx.mqttClient.Connect(); token.Wait() && token.Error() != nil {
+		panic(token.Error())
+	}
+}
+
 func main() {
 	appctx := new(AppContext)
 
@@ -89,15 +88,13 @@ func main() {
 	flag.StringVar(&appctx.localBroadcast, "LOCALBR", NDEF_STRING, "Local broadcast address address, default 255.255.255.255 - e.g. 192.168.2.255. Required on PfSense!")
 	flag.StringVar(&appctx.serverIp, "SERVERIP", NDEF_STRING, "Broadcast server IP address")
 	flag.IntVar(&appctx.serverPort, "SERVERPORT", 0, "Broadcast server port")
-	flag.StringVar(&appctx.rabbitConnStr, "RABBITCONN", NDEF_STRING, "Rabbitmq connection string")
 	flag.Parse()
 
-	reconfigureAmqp(appctx)
-
-	go loadTelegramBot(appctx)
 	appctx.lastState = "empty"
 	appctx.allLocalIp = FetchAllLocalIPs()
 	fmt.Println("APP Identified local IPs: " + appctx.allLocalIp)
+
+	setupMqttClient(appctx)
 
 	flag.Usage = func() {
 		fmt.Printf("Usage of %s:\n", os.Args[0])
@@ -122,81 +119,6 @@ func main() {
 	for {
 		time.Sleep(1 * time.Second)
 	}
-}
-
-func reconfigureAmqp(context *AppContext) {
-	context.rabbitconnected = false
-	if len(context.rabbitConnStr) == 0 {
-		return
-	}
-
-	fmt.Printf("Reconfigure AMQP...\n")
-
-	conn, err := amqp.Dial(context.rabbitConnStr)
-	logError(err, "Failed to connect to RabbitMQ")
-
-	if err != nil {
-		return
-	}
-
-	ch, err := conn.Channel()
-	logError(err, "Failed to open a channel")
-
-	context.rabbitConn = conn
-	context.rabbitChan = ch
-
-	err = ch.ExchangeDeclare(
-		"flex_topic", // name
-		"topic",      // type
-		true,         // durable
-		false,        // auto-deleted
-		false,        // internal
-		false,        // no-wait
-		nil,          // arguments
-	)
-	logError(err, "Failed to declare an exchange")
-
-	if err == nil {
-		fmt.Printf("AMQP configured.\n")
-	} else {
-		context.rabbitconnected = true
-	}
-}
-
-func logError(err error, msg string) {
-	if err != nil {
-		fmt.Printf("%s: %s\n", msg, err)
-	}
-}
-
-func loadTelegramBot(context *AppContext) {
-
-	telegramData := "/flexi/telegramData"
-
-	if _, err := os.Stat(telegramData); os.IsNotExist(err) {
-		fmt.Printf("Telegram integration disabled: %s", err)
-		return
-	}
-
-	dat, err := ioutil.ReadFile(telegramData)
-	telegramdata := strings.Split(string(dat), " ")
-	context.telegramToken = telegramdata[0]
-
-	chat, err := strconv.ParseInt(telegramdata[1], 10, 64)
-	context.telegramChat = chat
-
-	if err != nil || chat == 0 {
-		fmt.Printf("Telegram integration disabled: %s", err)
-		return
-	}
-
-	bot, err := tgbotapi.NewBotAPI(context.telegramToken)
-
-	if err != nil {
-		return
-	}
-
-	context.telegrambot = bot
 }
 
 func FetchAllLocalIPs() (allips string) {
@@ -256,23 +178,6 @@ func ListenForRelayedPkgs(appctx *AppContext) {
 			fmt.Println("CLT Error: ", err)
 		}
 	}
-}
-
-func notifyTelegramGroup(context *AppContext) {
-
-	fmt.Println("Telegram Notify: " + context.lastPackage.Status)
-	if context.telegrambot == nil || context.lastPackage == nil || len(context.lastPackage.Status) == 0 {
-		return
-	}
-
-	filenameStatusImage := "/flexi/" + context.lastPackage.Status + ".jpg"
-
-	msg := tgbotapi.NewMessage(context.telegramChat, "Radio "+context.lastPackage.Serial+" state changed: '"+context.lastPackage.Status+"' "+context.lastPackage.Inuse_ip+" "+context.lastPackage.Inuse_host)
-	context.telegrambot.Send(msg)
-
-	msgImg := tgbotapi.NewPhotoUpload(context.telegramChat, filenameStatusImage)
-	context.telegrambot.Send(msgImg)
-
 }
 
 func RelayLocal(appctx *AppContext, bytes []byte) {
@@ -458,7 +363,7 @@ func BroadcastListener(appctx *AppContext) {
 
 		copy(prev, buf)
 
-		if strings.Contains(appctx.allLocalIp, addr.IP.String()) {
+		if strings.Contains(appctx.allLocalIp, addr.IP.String()+" ") {
 			ackCnt++
 			fmt.Println("SRV ACK [" + strconv.Itoa(ackCnt) + "]")
 			continue
@@ -472,10 +377,9 @@ func BroadcastListener(appctx *AppContext) {
 		if parsed.Status != appctx.lastState {
 			appctx.lastState = parsed.Status
 			appctx.lastPackage = &parsed
-			go notifyTelegramGroup(appctx)
 		}
 
-		go pushAmqp(appctx, parsed)
+		go pushMqtt(appctx, parsed)
 
 		if 0 < len(appctx.registrations) {
 			for _, registration := range appctx.registrations {
@@ -498,38 +402,17 @@ func BroadcastListener(appctx *AppContext) {
 
 }
 
-func pushAmqp(context *AppContext, discoveryPackage flex.DiscoveryPackage) {
+func pushMqtt(context *AppContext, discoveryPackage flex.DiscoveryPackage) {
 
-	if len(context.rabbitConnStr) == 0 {
+	pkgJson, err := json.Marshal(discoveryPackage)
+	if err != nil {
+		fmt.Println(err)
 		return
 	}
 
-	if context.rabbitChan != nil {
+	token := context.mqttClient.Publish("flex/state", 0, false, pkgJson)
+	token.Wait()
 
-		pkgJson, err := json.Marshal(discoveryPackage)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-
-		//fmt.Println(string(pkgJson))
-
-		err = context.rabbitChan.Publish(
-			"flex_topic", // exchange
-			"discovery",  // routing key
-			false,        // mandatory
-			false,        // immediate
-			amqp.Publishing{
-				ContentType: "text/plain",
-				Body:        []byte(pkgJson),
-			})
-		if err != nil {
-			fmt.Println("amqp not available, trying to reconfigure!\n")
-			go reconfigureAmqp(context)
-		}
-	} else {
-		go reconfigureAmqp(context)
-	}
 }
 
 func CheckError(where string, err error) {
