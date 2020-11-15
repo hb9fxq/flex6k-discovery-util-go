@@ -260,6 +260,7 @@ func ListenForRelayedPkgs(appctx *AppContext) {
 
 func notifyTelegramGroup(context *AppContext) {
 
+	fmt.Print("Telegram Notify: " + context.lastPackage.Status)
 	if context.telegrambot == nil || context.lastPackage == nil || len(context.lastPackage.Status) == 0 {
 		return
 	}
@@ -510,7 +511,7 @@ func pushAmqp(context *AppContext, discoveryPackage flex.DiscoveryPackage) {
 			return
 		}
 
-		fmt.Println(string(pkgJson))
+		//fmt.Println(string(pkgJson))
 
 		err = context.rabbitChan.Publish(
 			"flex_topic", // exchange
