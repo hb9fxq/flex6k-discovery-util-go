@@ -46,6 +46,10 @@ type AppContext struct {
 
 	allLocalIp string // client listener IP & PORT
 
+	mqttBrokerAddress string
+	mqttClientId      string
+	mqttTopic         string
+
 	remotes []string // remotes to be notified
 
 	registrations map[string]ListenerRegistration
@@ -68,9 +72,10 @@ const FRS_DISCOVEY_ADDR string = "255.255.255.255:4992"
 const UDP_NETWORK string = "udp4"
 
 func setupMqttClient(appctx *AppContext) {
-	opts := mqtt.NewClientOptions().AddBroker("tcp://192.168.92.7:1883").SetClientID("flex6k-discovery")
+	opts := mqtt.NewClientOptions().AddBroker(appctx.mqttBrokerAddress).SetClientID(appctx.mqttClientId)
 	opts.SetKeepAlive(2 * time.Second)
 	opts.SetPingTimeout(1 * time.Second)
+	opts.CleanSession = false
 
 	appctx.mqttClient = mqtt.NewClient(opts)
 	if token := appctx.mqttClient.Connect(); token.Wait() && token.Error() != nil {
@@ -87,6 +92,9 @@ func main() {
 	flag.IntVar(&appctx.localPort, "LOCALPORT", 0, "Local port")
 	flag.StringVar(&appctx.localBroadcast, "LOCALBR", NDEF_STRING, "Local broadcast address address, default 255.255.255.255 - e.g. 192.168.2.255. Required on PfSense!")
 	flag.StringVar(&appctx.serverIp, "SERVERIP", NDEF_STRING, "Broadcast server IP address")
+	flag.StringVar(&appctx.mqttBrokerAddress, "MQTTBROKER", NDEF_STRING, "MQTT Broker Address")
+	flag.StringVar(&appctx.mqttClientId, "MQTTCLIENTID", NDEF_STRING, "MQTT Client ID")
+	flag.StringVar(&appctx.mqttTopic, "MQTTTOPIC", NDEF_STRING, "MQTT Topic")
 	flag.IntVar(&appctx.serverPort, "SERVERPORT", 0, "Broadcast server port")
 	flag.Parse()
 
@@ -94,13 +102,15 @@ func main() {
 	appctx.allLocalIp = FetchAllLocalIPs()
 	fmt.Println("APP Identified local IPs: " + appctx.allLocalIp)
 
-	setupMqttClient(appctx)
-
 	flag.Usage = func() {
 		fmt.Printf("Usage of %s:\n", os.Args[0])
 		fmt.Printf("    ..:: see https://github.com/krippendorf/flex6k-discovery-util-go for instructions ::..\n")
 
 		flag.PrintDefaults()
+	}
+
+	if appctx.mqttBrokerAddress != NDEF_STRING {
+		setupMqttClient(appctx)
 	}
 
 	if remotes != NDEF_STRING && appctx.localIp != NDEF_STRING {
@@ -379,7 +389,9 @@ func BroadcastListener(appctx *AppContext) {
 			appctx.lastPackage = &parsed
 		}
 
-		go pushMqtt(appctx, parsed)
+		if appctx.mqttBrokerAddress != NDEF_STRING {
+			go pushMqtt(appctx, parsed)
+		}
 
 		if 0 < len(appctx.registrations) {
 			for _, registration := range appctx.registrations {
@@ -410,9 +422,8 @@ func pushMqtt(context *AppContext, discoveryPackage flex.DiscoveryPackage) {
 		return
 	}
 
-	token := context.mqttClient.Publish("flex/state", 0, false, pkgJson)
+	token := context.mqttClient.Publish(context.mqttTopic, 0, false, pkgJson)
 	token.Wait()
-
 }
 
 func CheckError(where string, err error) {
