@@ -1,16 +1,14 @@
 # flex6k-discovery-util-go
 
-Lightweight replacement for: https://github.com/krippendorf/flex6k-discovery-util
-util to use FRS 6XXX(R) signature series radios across subnets / routed VPNs
 
+Util to use FRS 6XXX(R) signature series radios across subnets / routed VPNs
 
 Currently tested on RasberryPi, X64 Linux, and Windows
 
-
 ## Download precompiled for your system
 
-Most recent binary release is here (precompiled)
-https://github.com/krippendorf/flex6k-discovery-util-go/releases/download/v0.1-br/flex6k-discovery-util-go-0.1-BR-REL_ret.zip
+Most recent binary release is here (precompiled for windows & Raspberry PI or any other ARMv5 compatible SBC)
+https://github.com/hb9fxq/flex6k-discovery-util-go/releases/tag/untagged-28b9bd13793f7060bfa9
 
 ...currently for 386/amd64 Linux (ubuntu, etc and Windows) FreeBSD (PfSense) and ARM 5 linux (RaspberryPi)
 If your platform isn't listed, send me a pull request for the pretty simple build.sh file. 
@@ -23,7 +21,7 @@ It does not matter where you install the client and where the server.
 ### Simple setup (Client/Server):
 
 * Server: 192.168.1.4 is on a VPN site with [n] radios in the subnet
-* Client: 10.147.20.144 is a VPN router, connected via a TUN device and routes ?????  192.168.92.0/40
+* Client: 10.147.20.144 is a VPN router, at home 192.168.92.0/40
 * 192.168.1.7 Radio in this example
 
 #### Server VPN/Network site (server is installed close to the radio)
@@ -34,28 +32,40 @@ Windows command: flexi -SERVERIP=192.168.1.4 -SERVERPORT=7777
 
 #### Client VPN/Network site (Client in the subnet of SmartSDR)
 
+
+Linux command:</br>
 ```
-Linux command ./flexi --REMOTES=10.147.20.144:7777 --LOCALIFIP=192.168.1.4 --LOCALPORT=7788
-Windows command: flexi -REMOTES=10.147.20.144:7777 -LOCALIFIP=192.168.1.4 -LOCALPORT=7788
+./flexi --REMOTES=10.147.20.144:7777 --LOCALIFIP=192.168.1.4 --LOCALPORT=7788
 ```
+
+Windows command:</br>
+```
+flexi -REMOTES=10.147.20.144:7777 -LOCALIFIP=192.168.1.4 -LOCALPORT=7788
+```
+
+Hint: When the program is run for the first time, Windows will ask to for permission to add a firewall rule. Make sure to select your network (Public&Private as needed) to allow the tool to communicate!
+
 The ports can be changed. SERVERPORT and REMOTES port has to be the same (here 7777)
 
-If you execute these two commands the following output should result:
+If you execute these two commands the following output should result:</br>
 Client side:
-CLT RECEIVED PKG FROM SRV @ 192.168.1.4
+```CLT RECEIVED PKG FROM SRV @ 192.168.1.4
     broadcasting in local subnet
 CLT RECEIVED PKG FROM SRV @ 192.168.1.4
     broadcasting in local subnet
 CLT RECEIVED PKG FROM SRV @ 192.168.1.4
-    broadcasting in local subnet
+    broadcasting in local subnet 
+```
 
-Server side:
+Server side:</br>
+```
 REGISTRATION  R;10.147.20.144;7788  from  10.147.20.144:55973
 SRV: Number of regs: 1
 SRV BROADCAST RECEIVED [192.168.1.7:4992]
         ==> Notifying remote [R;10.147.20.144;7788]
 SRV BROADCAST RECEIVED [192.168.1.7:4992]
         ==> Notifying remote [R;10.147.20.144;7788]
+```
 
 Hint: ZeroTier works also with LTE routers and non-public IP adress
 
