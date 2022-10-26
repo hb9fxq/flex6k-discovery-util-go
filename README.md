@@ -7,8 +7,8 @@ Currently tested on RasberryPi, X64 Linux, and Windows
 
 ## Download precompiled for your system
 
-Most recent binary release is here (precompiled for windows & Raspberry PI or any other ARMv5 compatible SBC)
-https://github.com/hb9fxq/flex6k-discovery-util-go/releases/tag/untagged-28b9bd13793f7060bfa9
+Most recent binary release  v2022.2 is here (Precompiled for Windows,Linux,pfSense & Raspberry PI or any other ARMv5 compatible SBC):
+https://github.com/hb9fxq/flex6k-discovery-util-go/releases/tag/v0.1
 
 ...currently for 386/amd64 Linux (ubuntu, etc and Windows) FreeBSD (PfSense) and ARM 5 linux (RaspberryPi)
 If your platform isn't listed, send me a pull request for the pretty simple build.sh file. 
