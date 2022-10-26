@@ -25,9 +25,13 @@ It does not matter where you install the client and where the server.
 * 192.168.1.7 Radio in this example
 
 #### Server VPN/Network site (server is installed close to the radio)
+Linux command:</br>
 ```
-Linux command: ./flexi --SERVERIP=192.168.1.4 --SERVERPORT=7777
-Windows command: flexi -SERVERIP=192.168.1.4 -SERVERPORT=7777
+./flexi --SERVERIP=192.168.1.4 --SERVERPORT=7777
+```
+Windows command:Linux command:</br>
+```
+flexi -SERVERIP=192.168.1.4 -SERVERPORT=7777
 ```
 
 #### Client VPN/Network site (Client in the subnet of SmartSDR)
